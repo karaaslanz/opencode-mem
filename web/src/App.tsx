@@ -147,6 +147,7 @@ export default function App() {
                     {t("text-total", {
                       count: getDisplayedMemoryCount(
                         explorer.isSearching,
+                        explorer.selectedTag !== "",
                         explorer.totalItems,
                         explorer.statsTotal
                       ),
