@@ -37,13 +37,10 @@ describe("deleteSelectedMemories", () => {
 
   test("stops after the first failed group instead of reporting success", async () => {
     const calls: string[] = [];
-    const result = await deleteSelectedMemories(
-      ["prompt_1", "memory_1"],
-      async (endpoint) => {
-        calls.push(endpoint);
-        return { success: false, error: "prompt delete failed" };
-      }
-    );
+    const result = await deleteSelectedMemories(["prompt_1", "memory_1"], async (endpoint) => {
+      calls.push(endpoint);
+      return { success: false, error: "prompt delete failed" };
+    });
 
     expect(result).toEqual({
       success: false,
@@ -54,18 +51,44 @@ describe("deleteSelectedMemories", () => {
   });
 
   test("preserves successful prompt deletions when the memory group fails", async () => {
-    const result = await deleteSelectedMemories(
-      ["prompt_1", "memory_1"],
-      async (endpoint) =>
-        endpoint === "/api/prompts/bulk-delete"
-          ? { success: true }
-          : { success: false, error: "memory delete failed" }
+    const result = await deleteSelectedMemories(["prompt_1", "memory_1"], async (endpoint) =>
+      endpoint === "/api/prompts/bulk-delete"
+        ? { success: true }
+        : { success: false, error: "memory delete failed" }
     );
 
     expect(result).toEqual({
       success: false,
       deletedIds: ["prompt_1"],
       error: "memory delete failed",
+    });
+  });
+
+  test("treats cascade-linked memories as deleted and skips them on partial failure", async () => {
+    const calls: Call[] = [];
+    const result = await deleteSelectedMemories(
+      ["prompt_1", "memory_1", "memory_2"],
+      async (endpoint, options) => {
+        calls.push({ endpoint, options });
+        return endpoint === "/api/prompts/bulk-delete"
+          ? { success: true }
+          : { success: false, error: "memory delete failed" };
+      },
+      [
+        { id: "prompt_1", linkedMemoryId: "memory_1" },
+        { id: "memory_1", linkedPromptId: "prompt_1" },
+        { id: "memory_2" },
+      ]
+    );
+
+    expect(result).toEqual({
+      success: false,
+      deletedIds: ["prompt_1", "memory_1"],
+      error: "memory delete failed",
+    });
+    expect(JSON.parse(String(calls[1]!.options.body))).toEqual({
+      ids: ["memory_2"],
+      cascade: true,
     });
   });
 });

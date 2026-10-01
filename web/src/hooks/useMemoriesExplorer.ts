@@ -316,7 +316,15 @@ export function useMemoriesExplorer() {
     if (selectedIds.size === 0) return;
     if (!confirm(t("confirm-bulk-delete", { count: selectedIds.size }))) return;
 
-    const result = await deleteSelectedMemories(Array.from(selectedIds), fetchAPI);
+    const result = await deleteSelectedMemories(
+      Array.from(selectedIds),
+      fetchAPI,
+      memories.map((m) => ({
+        id: m.id,
+        linkedMemoryId: m.linkedMemoryId,
+        linkedPromptId: m.linkedPromptId,
+      }))
+    );
     if (!result.success) {
       if (result.deletedIds.length > 0) {
         const next = new Set(selectedIds);
